@@ -1,0 +1,86 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/Memory.jack
+
+/**
+ * This library provides two services: direct access to the computer's main
+ * memory (RAM), and allocation and recycling of memory blocks. The Hack RAM
+ * consists of 32,768 words, each holding a 16-bit binary number.
+ * This implementation of heap management does not utilize any defragmentation algorithms (but would certainly benefit of them).
+ */ 
+class Memory {
+    static Array ram;
+    static Array heap;
+    static int freeList;
+
+    /** Initializes the class. */
+    function void init() {
+        let ram = 0;
+        let heap = 2048;
+        let freeList = 2048;
+        let heap[0] = 0; //initial 'next'-pointer of freeList (points to 0 cause memory-block == size of entire heap);
+        let heap[1] = 14334; //16384-2050; i.e. the size of the current memory block (i.e. all of the heap - 2);
+        return;
+    }
+
+    /** Returns the RAM value at the given address. */
+    function int peek(int address) {
+        return ram[address];
+    }
+
+    /** Sets the RAM value at the given address to the given value. */
+    function void poke(int address, int value) {
+        let ram[address] = value;
+        return;
+    }
+
+    /** Finds an available RAM block of the given size and returns
+     *  a reference to its base address. It's a first-fit algorithm cause im just lazy like that rn (which also doesnt help the fragmentation issue but no care rn im afraid)*/
+    function int alloc(int size) {
+        var int current;
+        var int sizeOfMemoryBlock;
+        let current = freeList;
+
+        /* look for available memory-blocks until we're at the end of freeList */
+        while(current > 0) {
+            let sizeOfMemoryBlock = Memory.peek(current + 1);
+
+            if((sizeOfMemoryBlock > (size + 2)) | (sizeOfMemoryBlock = (size + 2))) {
+                /* next-pointer of current memory block */
+                do Memory.poke(current, current + sizeOfMemoryBlock - size);
+                /*size of current memory block */
+                do Memory.poke(current+1, sizeOfMemoryBlock - size - 2);
+
+                /* next-pointer of newly carved out memory block */
+                do Memory.poke(current + sizeOfMemoryBlock - size, 0);
+                /* size of newly carved out memory block */
+                do Memory.poke(current + sizeOfMemoryBlock - size + 1, size);
+
+                /* return baseAddress of newly carved out memory block */
+                return current + sizeOfMemoryBlock - size + 2;
+            }
+
+            /* else just keep going */
+            let current = Memory.peek(current);        
+        }
+        do Sys.error(6);
+        return 0;
+    }
+
+    /** De-allocates the given object (cast as an array) by making
+     *  it available for future allocations. */
+    function void deAlloc(Array o) {
+        var int current;
+        let current = freeList;
+
+        /* get to end of freeList */
+        while(Memory.peek(current) > 0) {
+            let current = Memory.peek(current);
+        }
+
+        /* set endOfFreeList to point to baseAddress of to-be-deAllocated-object */
+        do Memory.poke(current, o-2);
+        return;
+    }    
+}
